@@ -1,0 +1,76 @@
+diff --git a/app/Http/Controllers/VideoController.php b/app/Http/Controllers/VideoController.php
+--- a/app/Http/Controllers/VideoController.php
++++ b/app/Http/Controllers/VideoController.php
+@@ -16,7 +16,7 @@
+-        // Получаем видео с подсчетом комментариев и сортируем по рейтингу (просмотры + комментарии)
++        // Получаем видео с подсчетом комментариев и сортируем по рейтингу (просмотры + комментарии + лайки)
+         $videos = Video::withCount('comments')
+-            ->orderByRaw('(views + comments_count) DESC')
++            ->orderByRaw('(views + comments_count + likes) DESC')
+             ->orderBy('views', 'DESC')
+             ->orderBy('comments_count', 'DESC')
+             ->paginate($perPage, ['*'], 'page', $page);
+@@ -58,7 +58,7 @@
+         // Увеличиваем просмотры и обновляем рейтинг
+         $video->increment('views');
+-        $video->rating = $video->views + $video->comments_count;
++        $video->rating = $video->views + $video->comments_count + $video->likes;
+         $video->save();
+@@ -93,7 +93,7 @@
+         // Обновляем рейтинг видео
+         $video->refresh(); // Обновляем данные, чтобы получить актуальное количество комментариев
+-        $video->rating = $video->views + $video->comments()->count();
++        $video->rating = $video->views + $video->comments()->count() + $video->likes;
+         $video->save();
+@@ -111,7 +111,7 @@
+         foreach ($videos as $video) {
+-            $video->rating = $video->views + $video->comments_count;
++            $video->rating = $video->views + $video->comments_count + $video->likes;
+             $video->save();
+         }
+
+diff --git a/app/Models/Video.php b/app/Models/Video.php
+--- a/app/Models/Video.php
++++ b/app/Models/Video.php
+@@ -30,7 +30,7 @@
+     public function getTotalRatingAttribute()
+     {
+-        return $this->views + $this->comments_count;
++        return $this->views + $this->comments_count + $this->likes;
+     }
+@@ -65,7 +65,7 @@
+     public function updateRating()
+     {
+-        $this->rating = $this->views + $this->comments()->count();
++        $this->rating = $this->views + $this->comments()->count() + $this->likes;
+         $this->save();
+     }
+
+diff --git a/resources/views/video/index.blade.php b/resources/views/video/index.blade.php
+--- a/resources/views/video/index.blade.php
++++ b/resources/views/video/index.blade.php
+@@ -385,7 +385,7 @@
+                             <span class="rating-number">#1</span>
+                             <span class="rating-score">
+-                                ({{ number_format($videos[0]->views + $videos[0]->comments()->count()) }})
++                                ({{ number_format($videos[0]->views + $videos[0]->comments()->count() + $videos[0]->likes) }})
+                             </span>
+@@ -411,7 +411,7 @@
+                             <div class="stat">👁️ {{ number_format($videos[0]->views) }} просмотров</div>
+                             <div class="stat">💬 {{ $videos[0]->comments()->count() }} коммент.</div>
+                             <div class="stat">❤️ {{ number_format($videos[0]->likes) }} лайков</div>
+-                            <div class="stat">⭐ {{ number_format($videos[0]->views + $videos[0]->comments()->count()) }} рейтинг</div>
++                            <div class="stat">⭐ {{ number_format($videos[0]->views + $videos[0]->comments()->count() + $videos[0]->likes) }} рейтинг</div>
+@@ -436,7 +436,7 @@
+                         @php
+                             $globalIndex++;
+-                            $totalRating = $video->views + $video->comments()->count();
++                            $totalRating = $video->views + $video->comments()->count() + $video->likes;
+                             $position = $globalIndex + 1;
+                         @endphp
+@@ -487,7 +487,7 @@
+             @foreach($videos as $video)
+                 @php
+-                    $totalRating = $video->views + $video->comments()->count();
++                    $totalRating = $video->views + $video->comments()->count() + $video->likes;
+                 @endphp

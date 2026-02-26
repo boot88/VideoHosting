@@ -11,7 +11,7 @@ class VideoController extends Controller
 {
     public function index(Request $request)
     {
-        $perPage = 65; // видео на странице (пирамида: 1+2+3+4+5*11 = 65)
+        $perPage = (int) $request->get('per_page', 50); // видео на странице (пирамида: 1+2+3+4+5*11 = 65)
         $page = $request->get('page', 1);
         
         // Получаем видео с подсчетом комментариев и сортируем по рейтингу (просмотры + комментарии)

@@ -10,7 +10,7 @@ class Video extends Model
 {
     protected $fillable = [
         'title', 'slug', 'description', 'filename', 'thumbnail',
-        'duration', 'format', 'quality', 'views', 'likes', 'featured'
+        'duration', 'format', 'quality', 'views', 'likes', 'featured', 'category'
     ];
 
     protected $appends = ['comments_count', 'thumbnail_url', 'formatted_duration', 'total_rating'];
