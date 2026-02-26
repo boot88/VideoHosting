@@ -5,26 +5,41 @@ namespace App\Http\Controllers;
 use App\Models\Video;
 use App\Models\Comment;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class VideoController extends Controller
 {
     public function index(Request $request)
     {
-        $perPage = 65; // видео на странице (пирамида: 1+2+3+4+5*11 = 65)
+        $perPage = (int) $request->get('per_page', 50);
         $page = $request->get('page', 1);
-        
-        // Получаем видео с подсчетом комментариев и сортируем по рейтингу (просмотры + комментарии)
-        $videos = Video::withCount('comments')
-            ->orderByRaw('(views + comments_count) DESC')
+
+        $defaultCategories = config('video.categories', []);
+        $dbCategories = Video::query()->whereNotNull('category')->distinct()->pluck('category')->toArray();
+        $categories = array_values(array_unique(array_merge($defaultCategories, $dbCategories)));
+
+        $selectedCategory = $request->get('category');
+
+        // Получаем видео с подсчетом комментариев и сортируем по рейтингу
+        $videosQuery = Video::withCount('comments')
+            ->orderByRaw('(views + comments_count + likes) DESC')
             ->orderBy('views', 'DESC')
-            ->orderBy('comments_count', 'DESC')
-            ->paginate($perPage, ['*'], 'page', $page);
-        
+            ->orderBy('comments_count', 'DESC');
+
+        if ($selectedCategory && in_array($selectedCategory, $categories, true)) {
+            $videosQuery->where('category', $selectedCategory);
+        }
+
+        $videos = $videosQuery->paginate($perPage, ['*'], 'page', $page)->withQueryString();
+
+        $categoryStats = Video::selectRaw('category, COUNT(*) as total')
+            ->whereNotNull('category')
+            ->groupBy('category')
+            ->pluck('total', 'category');
+
         // Группируем видео по "этажам" для веб-версии
         $groupedVideos = $this->groupVideosForWeb($videos->items());
-        
-        return view('video.index', compact('videos', 'groupedVideos'));
+
+        return view('video.index', compact('videos', 'groupedVideos', 'categories', 'selectedCategory', 'categoryStats'));
     }
     
     private function groupVideosForWeb($videos)
@@ -57,7 +72,7 @@ class VideoController extends Controller
         
         // Увеличиваем просмотры и обновляем рейтинг
         $video->increment('views');
-        $video->rating = $video->views + $video->comments_count;
+        $video->rating = $video->views + $video->comments_count + $video->likes;
         $video->save();
         
         $comments = $video->comments()->latest()->get();
@@ -92,7 +107,7 @@ class VideoController extends Controller
         
         // Обновляем рейтинг видео
         $video->refresh(); // Обновляем данные, чтобы получить актуальное количество комментариев
-        $video->rating = $video->views + $video->comments()->count();
+        $video->rating = $video->views + $video->comments()->count() + $video->likes;
         $video->save();
         
         return back()->with('success', 'Комментарий добавлен!');
@@ -110,10 +125,37 @@ class VideoController extends Controller
         $videos = Video::withCount('comments')->get();
         
         foreach ($videos as $video) {
-            $video->rating = $video->views + $video->comments_count;
+            $video->rating = $video->views + $video->comments_count + $video->likes;
             $video->save();
         }
         
         return response()->json(['message' => 'Рейтинги обновлены', 'count' => $videos->count()]);
+    }
+
+    public function like(Request $request, $slug)
+    {
+        $video = Video::where('slug', $slug)->firstOrFail();
+
+        $likedVideos = $request->session()->get('liked_videos', []);
+
+        if (in_array($video->id, $likedVideos, true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Вы уже лайкнули это видео'
+            ], 409);
+        }
+
+        $video->increment('likes');
+        $video->refresh();
+        $video->updateRating();
+
+        $likedVideos[] = $video->id;
+        $request->session()->put('liked_videos', array_unique($likedVideos));
+
+        return response()->json([
+            'success' => true,
+            'likes' => $video->likes,
+            'rating' => $video->rating,
+        ]);
     }
 }

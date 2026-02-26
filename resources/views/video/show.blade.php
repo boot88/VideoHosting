@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $video->title }} | Fashion Video</title>
     <style>
         * {
@@ -665,7 +666,7 @@
                         <div class="stat-icon">❤️</div>
                         <div class="stat-info">
                             <div class="stat-label">ЛАЙКИ</div>
-                            <div class="stat-value">{{ number_format($video->likes) }}</div>
+                            <div class="stat-value" id="likesCount">{{ number_format($video->likes) }}</div>
                         </div>
                     </div>
                     
@@ -862,26 +863,47 @@
         
         // Like Video
         async function likeVideo(slug) {
+            const likeButton = document.querySelector('.like-btn');
+            const likesCount = document.getElementById('likesCount');
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+
+            if (!csrfToken) {
+                alert('CSRF токен не найден. Обновите страницу.');
+                return;
+            }
+
             try {
+                likeButton.disabled = true;
+                likeButton.textContent = '⏳ ОТПРАВКА...';
+
                 const response = await fetch(`/video/${slug}/like`, {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'X-CSRF-TOKEN': csrfToken,
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     }
                 });
-                
+
                 const data = await response.json();
-                
-                if (data.success) {
+
+                if (response.ok && data.success) {
+                    if (likesCount && typeof data.likes !== 'undefined') {
+                        likesCount.textContent = Number(data.likes).toLocaleString('ru-RU');
+                    }
+                    likeButton.textContent = '❤️ ЛАЙК ПОСТАВЛЕН';
                     alert('Спасибо за лайк!');
-                    location.reload();
-                } else {
-                    alert(data.message || 'Вы уже лайкнули это видео');
+                    return;
                 }
+
+                likeButton.disabled = false;
+                likeButton.textContent = '❤️ НРАВИТСЯ';
+                alert(data.message || 'Вы уже лайкнули это видео');
             } catch (error) {
                 console.error('Error:', error);
+                likeButton.disabled = false;
+                likeButton.textContent = '❤️ НРАВИТСЯ';
                 alert('Ошибка при отправке лайка');
             }
         }

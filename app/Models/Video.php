@@ -10,7 +10,7 @@ class Video extends Model
 {
     protected $fillable = [
         'title', 'slug', 'description', 'filename', 'thumbnail',
-        'duration', 'format', 'quality', 'views', 'likes', 'featured'
+        'duration', 'format', 'quality', 'views', 'likes', 'featured', 'category', 'source_path', 'source_mtime'
     ];
 
     protected $appends = ['comments_count', 'thumbnail_url', 'formatted_duration', 'total_rating'];
@@ -29,7 +29,7 @@ class Video extends Model
     
     public function getTotalRatingAttribute()
     {
-        return $this->views + $this->comments_count;
+        return $this->views + $this->comments_count + $this->likes;
     }
     
     public function getThumbnailUrlAttribute()
@@ -64,7 +64,7 @@ class Video extends Model
     // Метод для обновления рейтинга
     public function updateRating()
     {
-        $this->rating = $this->views + $this->comments()->count();
+        $this->rating = $this->views + $this->comments()->count() + $this->likes;
         $this->save();
     }
 }

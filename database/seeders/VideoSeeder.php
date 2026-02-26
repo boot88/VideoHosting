@@ -14,7 +14,7 @@ class VideoSeeder extends Seeder
         // Очищаем таблицу
         DB::table('videos')->truncate();
         
-        echo "Создание 50 видео...\n";
+        echo "Создание 160 видео (без копирования файлов)...\n";
         
         // Массив случайных описаний
         $descriptions = [
@@ -33,13 +33,15 @@ class VideoSeeder extends Seeder
         // Массив качеств
         $qualities = ['HD', 'Full HD', '4K', '1080p', '720p'];
         $formats = ['MP4', 'AVI', 'MKV', 'MOV'];
-        
-        for ($i = 1; $i <= 50; $i++) {
+        $categories = ['runway', 'streetwear', 'haute-couture', 'accessories', 'beauty', 'lookbook', 'backstage', 'editorial', 'menswear', 'sustainable', 'kids-fashion'];
+        $sourceFiles = ['fashion_source_1.mp4', 'fashion_source_2.mp4', 'fashion_source_3.mp4', 'fashion_source_4.mp4'];
+
+        for ($i = 1; $i <= 160; $i++) {
             $video = Video::create([
-                'title' => "Funniest Home Videos Part $i",
-                'slug' => "funniest-home-videos-part-$i",
-                'description' => $descriptions[array_rand($descriptions)] . " - Часть $i",
-                'filename' => "funniest_home_videos_part_$i.mp4",
+                'title' => "Fashion Collection Video #$i",
+                'slug' => "fashion-collection-video-$i",
+                'description' => $descriptions[array_rand($descriptions)] . " • Дроп #$i",
+                'filename' => $sourceFiles[($i - 1) % count($sourceFiles)],
                 'thumbnail' => null,
                 'duration' => rand(120, 600),
                 'format' => $formats[array_rand($formats)],
@@ -48,14 +50,15 @@ class VideoSeeder extends Seeder
                 'likes' => rand(50, 5000),
                 'rating' => rand(500, 15000),
                 'featured' => $i === 1,
+                'category' => $categories[($i - 1) % count($categories)],
                 'created_at' => now()->subDays(rand(0, 30)),
                 'updated_at' => now(),
             ]);
             
-            echo "Создано видео {$i}/50: {$video->title}\n";
+            echo "Создано видео {$i}/160: {$video->title}\n";
         }
         
-        echo "Все 50 видео созданы!\n";
+        echo "Все 160 видео созданы без дублирования файлов!\n";
         echo "Теперь запустите: php artisan video:generate-thumbnails --all\n";
     }
 }

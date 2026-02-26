@@ -138,7 +138,7 @@ class VideoThumbnailService
         }
     }
     
-    private static function createColorfulThumbnail(Video $video)
+    public static function createColorfulThumbnail(Video $video)
     {
         // Оставляем существующий метод как fallback
         try {

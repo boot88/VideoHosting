@@ -14,16 +14,56 @@
         
         body {
             font-family: 'Segoe UI', -apple-system, system-ui, sans-serif;
-            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+            background: radial-gradient(circle at 20% 20%, #1b2735 0%, #090a0f 45%, #050608 100%);
             min-height: 100vh;
             color: #fff;
             padding: 20px;
         }
         
+        .layout-shell {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 20px;
+        }
+
+        .left-sidebar {
+            background: rgba(10, 16, 26, 0.92);
+            border-radius: 24px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+        }
+
+        .left-sidebar h3 {
+            margin-bottom: 14px;
+            font-weight: 500;
+            color: #c5d6ff;
+        }
+
+        .category-link {
+            display: flex;
+            justify-content: space-between;
+            text-decoration: none;
+            color: #c8d4ea;
+            padding: 10px 12px;
+            border-radius: 10px;
+            margin-bottom: 6px;
+            background: rgba(255,255,255,0.03);
+        }
+
+        .category-link.active {
+            color: #fff;
+            background: linear-gradient(45deg, rgba(255,107,157,0.45), rgba(78,205,196,0.45));
+        }
+
         .fashion-container {
             max-width: 1400px;
             margin: 0 auto;
-            background: rgba(20, 20, 20, 0.9);
+            background: rgba(10, 16, 26, 0.92);
             border-radius: 24px;
             padding: 30px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
@@ -285,6 +325,16 @@
         }
         
         /* Responsive */
+        @media (max-width: 1100px) {
+            .layout-shell {
+                grid-template-columns: 1fr;
+            }
+
+            .left-sidebar {
+                position: static;
+            }
+        }
+
         @media (max-width: 768px) {
             .fashion-container {
                 padding: 15px;
@@ -370,10 +420,24 @@
     </style>
 </head>
 <body>
-    <div class="fashion-container">
+    <div class="layout-shell">
+        <aside class="left-sidebar">
+            <h3>Категории (11)</h3>
+            <a class="category-link {{ !$selectedCategory ? "active" : "" }}" href="{{ route('video.index') }}">
+                <span>Все категории</span><span>{{ $videos->total() }}</span>
+            </a>
+            @foreach($categories as $category)
+                <a class="category-link {{ $selectedCategory === $category ? "active" : "" }}" href="{{ route('video.index', ['category' => $category]) }}">
+                    <span>{{ ucfirst(str_replace('-', ' ', $category)) }}</span>
+                    <span>{{ $categoryStats[$category] ?? 0 }}</span>
+                </a>
+            @endforeach
+        </aside>
+
+        <div class="fashion-container">
         <div class="fashion-header">
-            <h1>Fashion Video Hub</h1>
-            <p>Модная платформа для просмотра видео</p>
+            <h1>Hosting Video Hub</h1>
+            <p>Новый стиль хостинга: быстрый каталог и мгновенный просмотр</p>
         </div>
         
         @if(isset($videos[0]))
@@ -385,7 +449,7 @@
                         <div class="rating-badge">
                             <span class="rating-number">#1</span>
                             <span class="rating-score">
-                                ({{ number_format($videos[0]->views + $videos[0]->comments()->count()) }})
+                                ({{ number_format($videos[0]->views + $videos[0]->comments()->count() + $videos[0]->likes) }})
                             </span>
                         </div>
                         <img src="{{ $videos[0]->thumbnail_url }}" alt="{{ $videos[0]->title }}">
@@ -410,7 +474,8 @@
                         <div class="video-stats">
                             <div class="stat">👁️ {{ number_format($videos[0]->views) }} просмотров</div>
                             <div class="stat">💬 {{ $videos[0]->comments()->count() }} коммент.</div>
-                            <div class="stat">⭐ {{ number_format($videos[0]->views + $videos[0]->comments()->count()) }} рейтинг</div>
+                            <div class="stat">❤️ {{ number_format($videos[0]->likes) }} лайков</div>
+                            <div class="stat">⭐ {{ number_format($videos[0]->views + $videos[0]->comments()->count() + $videos[0]->likes) }} рейтинг</div>
                         </div>
                     </div>
                 </div>
@@ -433,7 +498,7 @@
                     @foreach($floorVideos as $video)
                         @php
                             $globalIndex++;
-                            $totalRating = $video->views + $video->comments()->count();
+                            $totalRating = $video->views + $video->comments()->count() + $video->likes;
                             $position = $globalIndex + 1; // +1 потому что первое видео в featured
                         @endphp
                         @if($loop->parent->index >= 1 || $loop->index >= 1) <!-- Пропускаем первое видео первого этажа -->
@@ -469,6 +534,7 @@
                                     <div class="video-stats">
                                         <div class="stat">👁️ {{ number_format($video->views) }}</div>
                                         <div class="stat">💬 {{ $video->comments()->count() }}</div>
+                                        <div class="stat">❤️ {{ number_format($video->likes) }}</div>
                                         <div class="stat">⭐ {{ number_format($totalRating) }}</div>
                                     </div>
                                 </div>
@@ -483,7 +549,7 @@
         <div class="mobile-grid">
             @foreach($videos as $video)
                 @php
-                    $totalRating = $video->views + $video->comments()->count();
+                    $totalRating = $video->views + $video->comments()->count() + $video->likes;
                 @endphp
                 @if(!$loop->first) <!-- Пропускаем первое видео (оно featured) -->
                     <div class="video-card" data-slug="{{ $video->slug }}">
@@ -508,6 +574,7 @@
                             <div class="video-stats">
                                 <div class="stat">👁️ {{ number_format($video->views) }}</div>
                                 <div class="stat">💬 {{ $video->comments()->count() }}</div>
+                                <div class="stat">❤️ {{ number_format($video->likes) }}</div>
                             </div>
                         </div>
                     </div>
@@ -537,8 +604,9 @@
                 @endif
             </div>
         @endif
+        </div>
     </div>
-    
+
     <script>
         // Обработка кликов по видео карточкам
         document.addEventListener('DOMContentLoaded', function() {
