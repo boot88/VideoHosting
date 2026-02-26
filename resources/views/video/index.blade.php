@@ -385,7 +385,7 @@
                         <div class="rating-badge">
                             <span class="rating-number">#1</span>
                             <span class="rating-score">
-                                ({{ number_format($videos[0]->views + $videos[0]->comments()->count()) }})
+                                ({{ number_format($videos[0]->views + $videos[0]->comments()->count() + $videos[0]->likes) }})
                             </span>
                         </div>
                         <img src="{{ $videos[0]->thumbnail_url }}" alt="{{ $videos[0]->title }}">
@@ -410,7 +410,7 @@
                         <div class="video-stats">
                             <div class="stat">👁️ {{ number_format($videos[0]->views) }} просмотров</div>
                             <div class="stat">💬 {{ $videos[0]->comments()->count() }} коммент.</div>
-                            <div class="stat">⭐ {{ number_format($videos[0]->views + $videos[0]->comments()->count()) }} рейтинг</div>
+                            <div class="stat">⭐ {{ number_format($videos[0]->views + $videos[0]->comments()->count() + $videos[0]->likes) }} рейтинг</div>
                         </div>
                     </div>
                 </div>
@@ -433,7 +433,7 @@
                     @foreach($floorVideos as $video)
                         @php
                             $globalIndex++;
-                            $totalRating = $video->views + $video->comments()->count();
+                            $totalRating = $video->views + $video->comments()->count() + $video->likes;
                             $position = $globalIndex + 1; // +1 потому что первое видео в featured
                         @endphp
                         @if($loop->parent->index >= 1 || $loop->index >= 1) <!-- Пропускаем первое видео первого этажа -->
@@ -483,7 +483,7 @@
         <div class="mobile-grid">
             @foreach($videos as $video)
                 @php
-                    $totalRating = $video->views + $video->comments()->count();
+                    $totalRating = $video->views + $video->comments()->count() + $video->likes;
                 @endphp
                 @if(!$loop->first) <!-- Пропускаем первое видео (оно featured) -->
                     <div class="video-card" data-slug="{{ $video->slug }}">

@@ -16,7 +16,7 @@ class VideoController extends Controller
         
         // Получаем видео с подсчетом комментариев и сортируем по рейтингу (просмотры + комментарии)
         $videos = Video::withCount('comments')
-            ->orderByRaw('(views + comments_count) DESC')
+            ->orderByRaw('(views + comments_count + likes) DESC')
             ->orderBy('views', 'DESC')
             ->orderBy('comments_count', 'DESC')
             ->paginate($perPage, ['*'], 'page', $page);
@@ -57,7 +57,7 @@ class VideoController extends Controller
         
         // Увеличиваем просмотры и обновляем рейтинг
         $video->increment('views');
-        $video->rating = $video->views + $video->comments_count;
+        $video->rating = $video->views + $video->comments_count + $video->likes;
         $video->save();
         
         $comments = $video->comments()->latest()->get();
@@ -92,7 +92,7 @@ class VideoController extends Controller
         
         // Обновляем рейтинг видео
         $video->refresh(); // Обновляем данные, чтобы получить актуальное количество комментариев
-        $video->rating = $video->views + $video->comments()->count();
+        $video->rating = $video->views + $video->comments()->count() + $video->likes;
         $video->save();
         
         return back()->with('success', 'Комментарий добавлен!');
@@ -110,7 +110,7 @@ class VideoController extends Controller
         $videos = Video::withCount('comments')->get();
         
         foreach ($videos as $video) {
-            $video->rating = $video->views + $video->comments_count;
+            $video->rating = $video->views + $video->comments_count + $video->likes;
             $video->save();
         }
         
