@@ -14,10 +14,12 @@ class VideoController extends Controller
         $perPage = 65; // видео на странице (пирамида: 1+2+3+4+5*11 = 65)
         $page = $request->get('page', 1);
         
-        // Получаем видео отсортированные по рейтингу
-        $videos = Video::orderBy('rating', 'desc')
-        ->orderBy('views', 'desc')
-        ->paginate($perPage, ['*'], 'page', $page);
+        // Получаем видео с подсчетом комментариев и сортируем по рейтингу (просмотры + комментарии)
+        $videos = Video::withCount('comments')
+            ->orderByRaw('(views + comments_count) DESC')
+            ->orderBy('views', 'DESC')
+            ->orderBy('comments_count', 'DESC')
+            ->paginate($perPage, ['*'], 'page', $page);
         
         // Группируем видео по "этажам" для веб-версии
         $groupedVideos = $this->groupVideosForWeb($videos->items());
@@ -49,10 +51,14 @@ class VideoController extends Controller
     
     public function show($slug)
     {
-        $video = Video::where('slug', $slug)->firstOrFail();
+        $video = Video::where('slug', $slug)
+            ->withCount('comments')
+            ->firstOrFail();
         
-        // Увеличиваем просмотры
-        $video->incrementViews();
+        // Увеличиваем просмотры и обновляем рейтинг
+        $video->increment('views');
+        $video->rating = $video->views + $video->comments_count;
+        $video->save();
         
         $comments = $video->comments()->latest()->get();
         
@@ -68,10 +74,10 @@ class VideoController extends Controller
         
         $video = Video::where('slug', $slug)->firstOrFail();
         
-        // Проверка защиты от спама (можно добавить капчу)
+        // Проверка защиты от спама
         $lastComment = Comment::where('ip_address', $request->ip())
-        ->orderBy('created_at', 'desc')
-        ->first();
+            ->orderBy('created_at', 'desc')
+            ->first();
         
         if ($lastComment && $lastComment->created_at->diffInMinutes(now()) < 1) {
             return back()->withErrors(['content' => 'Пожалуйста, подождите минуту перед отправкой следующего комментария']);
@@ -85,6 +91,7 @@ class VideoController extends Controller
         ]);
         
         // Обновляем рейтинг видео
+        $video->refresh(); // Обновляем данные, чтобы получить актуальное количество комментариев
         $video->rating = $video->views + $video->comments()->count();
         $video->save();
         
@@ -95,5 +102,18 @@ class VideoController extends Controller
     {
         $video = Video::where('slug', $slug)->firstOrFail();
         return view('video.fullscreen', compact('video'));
+    }
+    
+    // Метод для обновления рейтингов всех видео (можно запускать по расписанию)
+    public function updateAllRatings()
+    {
+        $videos = Video::withCount('comments')->get();
+        
+        foreach ($videos as $video) {
+            $video->rating = $video->views + $video->comments_count;
+            $video->save();
+        }
+        
+        return response()->json(['message' => 'Рейтинги обновлены', 'count' => $videos->count()]);
     }
 }

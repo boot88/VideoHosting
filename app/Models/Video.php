@@ -3,46 +3,68 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Services\VideoThumbnailService;
 
 class Video extends Model
 {
-    use HasFactory;
-    
     protected $fillable = [
         'title', 'slug', 'description', 'filename', 'thumbnail',
-        'duration', 'format', 'quality', 'views', 'likes', 'featured', 'rating'
+        'duration', 'format', 'quality', 'views', 'likes', 'featured'
     ];
+
+    protected $appends = ['comments_count', 'thumbnail_url', 'formatted_duration', 'total_rating'];
     
-    public function comments()
+    public function comments(): HasMany
     {
-        return $this->hasMany(Comment::class);
+        return $this->hasMany(\App\Models\Comment::class);
     }
     
-    public function incrementViews()
+   
+    
+    public function getCommentsCountAttribute()
     {
-        $this->views++;
-        $this->rating = $this->views + $this->comments()->count();
-        $this->save();
+        return $this->comments()->count();
+    }
+    
+    public function getTotalRatingAttribute()
+    {
+        return $this->views + $this->comments_count;
     }
     
     public function getThumbnailUrlAttribute()
     {
-        if ($this->thumbnail) {
-            return asset('storage/' . $this->thumbnail);
-        }
-        return asset('images/default-thumbnail.jpg');
+        return VideoThumbnailService::getThumbnailUrl($this->thumbnail);
     }
-    
+
     public function getVideoUrlAttribute()
     {
+        // Проверяем существует ли файл
+        $path = storage_path('app/public/videos/' . $this->filename);
+        if (!file_exists($path)) {
+            // Создаем заглушку если файла нет
+            return $this->createDummyVideoUrl();
+        }
         return asset('storage/videos/' . $this->filename);
     }
     
+    private function createDummyVideoUrl()
+    {
+        // Возвращаем тестовое видео
+        return 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+    }
+
     public function getFormattedDurationAttribute()
     {
         $minutes = floor($this->duration / 60);
         $seconds = $this->duration % 60;
         return sprintf('%02d:%02d', $minutes, $seconds);
+    }
+    
+    // Метод для обновления рейтинга
+    public function updateRating()
+    {
+        $this->rating = $this->views + $this->comments()->count();
+        $this->save();
     }
 }

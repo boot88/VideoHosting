@@ -62,6 +62,7 @@
             border-radius: 20px;
             overflow: hidden;
             box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+            position: relative;
         }
         
         .featured-label {
@@ -74,6 +75,10 @@
             letter-spacing: 2px;
             text-transform: uppercase;
             border-radius: 0 0 10px 10px;
+            position: absolute;
+            top: 0;
+            left: 20px;
+            z-index: 10;
         }
         
         /* Video Grid */
@@ -140,6 +145,27 @@
             transform: scale(1.05);
         }
         
+        .video-player {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 2;
+        }
+        
+        .video-card:hover .video-player {
+            opacity: 1;
+        }
+        
+        .video-player video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
         .play-overlay {
             position: absolute;
             top: 0;
@@ -152,6 +178,7 @@
             justify-content: center;
             opacity: 0;
             transition: opacity 0.3s ease;
+            z-index: 3;
         }
         
         .video-card:hover .play-overlay {
@@ -213,12 +240,24 @@
             right: 15px;
             background: linear-gradient(45deg, #ff6b9d, #4ecdc4);
             color: white;
-            padding: 5px 12px;
+            padding: 8px 15px;
             border-radius: 20px;
-            font-size: 0.8rem;
+            font-size: 0.9rem;
             font-weight: 600;
-            z-index: 1;
+            z-index: 4;
             box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .rating-number {
+            font-size: 1.1em;
+        }
+        
+        .rating-score {
+            font-size: 0.8em;
+            opacity: 0.9;
         }
         
         /* Pagination */
@@ -277,6 +316,19 @@
             .video-title {
                 font-size: 1rem;
             }
+            
+            .video-stats {
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+            
+            .video-player {
+                display: none; /* На мобильных скрываем автозапуск */
+            }
+            
+            .play-overlay {
+                opacity: 0.7; /* На мобильных всегда видна иконка */
+            }
         }
         
         /* Desktop Pyramid Layout */
@@ -286,6 +338,34 @@
             .floor-3 .video-grid { grid-template-columns: repeat(3, 1fr); }
             .floor-4 .video-grid { grid-template-columns: repeat(4, 1fr); }
             .floor-5 .video-grid { grid-template-columns: repeat(5, 1fr); }
+        }
+        
+        /* Loading State */
+        .video-loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 5;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255, 107, 157, 0.3);
+            border-top: 3px solid #ff6b9d;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -297,13 +377,26 @@
         </div>
         
         @if(isset($videos[0]))
-            <!-- Featured Video -->
+            <!-- Featured Video (самое популярное) -->
             <div class="featured-video">
-                <div class="featured-label">ТОП ВИДЕО</div>
-                <div class="video-card" onclick="window.location.href='{{ route('video.show', $videos[0]->slug) }}'">
+                <div class="featured-label">🔥 ТОП ВИДЕО #1</div>
+                <div class="video-card" data-slug="{{ $videos[0]->slug }}" data-video-url="{{ $videos[0]->video_url }}">
                     <div class="video-thumbnail">
-                        <div class="rating-badge">🔥 #1</div>
+                        <div class="rating-badge">
+                            <span class="rating-number">#1</span>
+                            <span class="rating-score">
+                                ({{ number_format($videos[0]->views + $videos[0]->comments()->count()) }})
+                            </span>
+                        </div>
                         <img src="{{ $videos[0]->thumbnail_url }}" alt="{{ $videos[0]->title }}">
+                        <div class="video-player">
+                            <video muted preload="metadata" loop>
+                                <source src="{{ $videos[0]->video_preview_url ?? $videos[0]->video_url }}" type="video/mp4">
+                            </video>
+                            <div class="video-loading" style="display: none;">
+                                <div class="spinner"></div>
+                            </div>
+                        </div>
                         <div class="play-overlay">
                             <div class="play-icon">▶</div>
                         </div>
@@ -315,9 +408,9 @@
                             <span>🎬 {{ $videos[0]->quality }}</span>
                         </div>
                         <div class="video-stats">
-                            <div class="stat">👁️ {{ $videos[0]->views }} просмотров</div>
-                            <div class="stat">💬 {{ $videos[0]->comments_count ?? 0 }} коммент.</div>
-                            <div class="stat">⭐ {{ $videos[0]->rating }} рейтинг</div>
+                            <div class="stat">👁️ {{ number_format($videos[0]->views) }} просмотров</div>
+                            <div class="stat">💬 {{ $videos[0]->comments()->count() }} коммент.</div>
+                            <div class="stat">⭐ {{ number_format($videos[0]->views + $videos[0]->comments()->count()) }} рейтинг</div>
                         </div>
                     </div>
                 </div>
@@ -325,6 +418,9 @@
         @endif
         
         <!-- Desktop Pyramid Layout -->
+        @php
+            $globalIndex = 0;
+        @endphp
         @foreach($groupedVideos as $floorIndex => $floorVideos)
             @php
                 $floorNumber = min($floorIndex + 1, 5);
@@ -335,11 +431,31 @@
                 <h3 class="floor-title">Этаж {{ $floorIndex + 1 }} • {{ $floorSize }} видео</h3>
                 <div class="video-grid">
                     @foreach($floorVideos as $video)
-                        @if($loop->index >= 1 || $floorIndex > 0) <!-- Пропускаем первое видео (оно featured) -->
-                            <div class="video-card" onclick="window.location.href='{{ route('video.show', $video->slug) }}'">
+                        @php
+                            $globalIndex++;
+                            $totalRating = $video->views + $video->comments()->count();
+                            $position = $globalIndex + 1; // +1 потому что первое видео в featured
+                        @endphp
+                        @if($loop->parent->index >= 1 || $loop->index >= 1) <!-- Пропускаем первое видео первого этажа -->
+                            <div class="video-card" data-slug="{{ $video->slug }}" data-video-url="{{ $video->video_url }}">
                                 <div class="video-thumbnail">
-                                    <div class="rating-badge">#{{ ($floorIndex * 5) + $loop->index + 1 }}</div>
+                                    <div class="rating-badge">
+                                        <span class="rating-number">
+                                            {{ $position <= 3 ? '🔥 ' : '' }}#{{ $position }}
+                                        </span>
+                                        <span class="rating-score">
+                                            ({{ number_format($totalRating) }})
+                                        </span>
+                                    </div>
                                     <img src="{{ $video->thumbnail_url }}" alt="{{ $video->title }}">
+                                    <div class="video-player">
+                                        <video muted preload="metadata" loop>
+                                            <source src="{{ $video->video_preview_url ?? $video->video_url }}" type="video/mp4">
+                                        </video>
+                                        <div class="video-loading" style="display: none;">
+                                            <div class="spinner"></div>
+                                        </div>
+                                    </div>
                                     <div class="play-overlay">
                                         <div class="play-icon">▶</div>
                                     </div>
@@ -351,8 +467,9 @@
                                         <span>🎬 {{ $video->quality }}</span>
                                     </div>
                                     <div class="video-stats">
-                                        <div class="stat">👁️ {{ $video->views }}</div>
-                                        <div class="stat">💬 {{ $video->comments_count ?? 0 }}</div>
+                                        <div class="stat">👁️ {{ number_format($video->views) }}</div>
+                                        <div class="stat">💬 {{ $video->comments()->count() }}</div>
+                                        <div class="stat">⭐ {{ number_format($totalRating) }}</div>
                                     </div>
                                 </div>
                             </div>
@@ -365,10 +482,18 @@
         <!-- Mobile Grid -->
         <div class="mobile-grid">
             @foreach($videos as $video)
-                @if(!$loop->first) <!-- Пропускаем первое видео -->
-                    <div class="video-card" onclick="window.location.href='{{ route('video.show', $video->slug) }}'">
+                @php
+                    $totalRating = $video->views + $video->comments()->count();
+                @endphp
+                @if(!$loop->first) <!-- Пропускаем первое видео (оно featured) -->
+                    <div class="video-card" data-slug="{{ $video->slug }}">
                         <div class="video-thumbnail">
-                            <div class="rating-badge">#{{ $loop->iteration }}</div>
+                            <div class="rating-badge">
+                                <span class="rating-number">#{{ $loop->iteration }}</span>
+                                <span class="rating-score">
+                                    ({{ number_format($totalRating) }})
+                                </span>
+                            </div>
                             <img src="{{ $video->thumbnail_url }}" alt="{{ $video->title }}">
                             <div class="play-overlay">
                                 <div class="play-icon">▶</div>
@@ -381,8 +506,8 @@
                                 <span>🎬 {{ $video->quality }}</span>
                             </div>
                             <div class="video-stats">
-                                <div class="stat">👁️ {{ $video->views }}</div>
-                                <div class="stat">💬 {{ $video->comments_count ?? 0 }}</div>
+                                <div class="stat">👁️ {{ number_format($video->views) }}</div>
+                                <div class="stat">💬 {{ $video->comments()->count() }}</div>
                             </div>
                         </div>
                     </div>
@@ -415,17 +540,92 @@
     </div>
     
     <script>
-        // Fullscreen video click
-        document.querySelectorAll('.video-card').forEach(card => {
-            card.addEventListener('click', function(e) {
-                if (e.target.closest('a')) return; // Если клик по ссылке
-                window.location.href = this.getAttribute('onclick').match(/'(.*?)'/)[1];
+        // Обработка кликов по видео карточкам
+        document.addEventListener('DOMContentLoaded', function() {
+            const videoCards = document.querySelectorAll('.video-card');
+            
+            videoCards.forEach(card => {
+                const videoPlayer = card.querySelector('.video-player video');
+                const loadingElement = card.querySelector('.video-loading');
+                
+                if (videoPlayer) {
+                    // Предзагрузка видео
+                    videoPlayer.load();
+                    
+                    // Обработчики для автозапуска при наведении
+                    let hoverTimer;
+                    let isVideoPlaying = false;
+                    
+                    card.addEventListener('mouseenter', function() {
+                        if (window.innerWidth > 768) { // Только на десктопе
+                            hoverTimer = setTimeout(() => {
+                                if (loadingElement) loadingElement.style.display = 'flex';
+                                
+                                videoPlayer.play().then(() => {
+                                    isVideoPlaying = true;
+                                    if (loadingElement) loadingElement.style.display = 'none';
+                                }).catch(error => {
+                                    console.log('Ошибка автозапуска:', error);
+                                    if (loadingElement) loadingElement.style.display = 'none';
+                                });
+                            }, 300); // Задержка 300мс перед запуском
+                        }
+                    });
+                    
+                    card.addEventListener('mouseleave', function() {
+                        clearTimeout(hoverTimer);
+                        
+                        if (isVideoPlaying) {
+                            videoPlayer.pause();
+                            videoPlayer.currentTime = 0;
+                            isVideoPlaying = false;
+                        }
+                        
+                        if (loadingElement) loadingElement.style.display = 'none';
+                    });
+                    
+                    // Обработка клика для перехода на страницу видео
+                    card.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const slug = this.getAttribute('data-slug');
+                        if (slug) {
+                            // Остановить все видео перед переходом
+                            document.querySelectorAll('.video-player video').forEach(v => {
+                                v.pause();
+                                v.currentTime = 0;
+                            });
+                            
+                            window.location.href = '/video/' + slug;
+                        }
+                    });
+                }
             });
-        });
-        
-        // Auto-play first video on hover (optional)
-        document.querySelector('.featured-video .video-card').addEventListener('mouseenter', function() {
-            // Можно добавить превью-анимацию
+            
+            // Остановить все видео при уходе со страницы
+            document.addEventListener('visibilitychange', function() {
+                if (document.hidden) {
+                    document.querySelectorAll('.video-player video').forEach(video => {
+                        video.pause();
+                        video.currentTime = 0;
+                    });
+                }
+            });
+            
+            // Остановить все видео при скролле (опционально)
+            let scrollTimer;
+            window.addEventListener('scroll', function() {
+                clearTimeout(scrollTimer);
+                scrollTimer = setTimeout(() => {
+                    document.querySelectorAll('.video-player video').forEach(video => {
+                        const rect = video.getBoundingClientRect();
+                        // Если видео не в видимой области экрана
+                        if (rect.bottom < 0 || rect.top > window.innerHeight) {
+                            video.pause();
+                            video.currentTime = 0;
+                        }
+                    });
+                }, 100);
+            });
         });
     </script>
 </body>
