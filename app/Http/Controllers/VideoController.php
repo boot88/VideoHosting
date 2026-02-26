@@ -116,4 +116,33 @@ class VideoController extends Controller
         
         return response()->json(['message' => 'Рейтинги обновлены', 'count' => $videos->count()]);
     }
+
+
+    public function like(Request $request, $slug)
+    {
+        $video = Video::where('slug', $slug)->firstOrFail();
+
+        $likedVideos = $request->session()->get('liked_videos', []);
+
+        if (in_array($video->id, $likedVideos, true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Вы уже лайкнули это видео'
+            ], 409);
+        }
+
+        $video->increment('likes');
+        $video->refresh();
+        $video->updateRating();
+
+        $likedVideos[] = $video->id;
+        $request->session()->put('liked_videos', array_unique($likedVideos));
+
+        return response()->json([
+            'success' => true,
+            'likes' => $video->likes,
+            'rating' => $video->rating,
+        ]);
+    }
+
 }
