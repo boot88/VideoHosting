@@ -6,6 +6,7 @@ use App\Models\Video;
 use App\Models\Comment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 
 class VideoController extends Controller
 {
@@ -13,18 +14,52 @@ class VideoController extends Controller
     {
         $perPage = (int) $request->get('per_page', 50); // видео на странице (пирамида: 1+2+3+4+5*11 = 65)
         $page = $request->get('page', 1);
+        $selectedCategory = (string) $request->get('category', 'all');
+
+        $categoriesFromDb = Video::query()
+            ->select('category')
+            ->whereNotNull('category')
+            ->distinct()
+            ->pluck('category')
+            ->filter()
+            ->values()
+            ->all();
+
+        $importDir = public_path('images/import');
+        $categoriesFromFolders = [];
+        if (File::isDirectory($importDir)) {
+            $categoriesFromFolders = collect(File::directories($importDir))
+                ->map(static fn (string $path): string => basename($path))
+                ->filter()
+                ->values()
+                ->all();
+        }
+
+        $categories = collect(array_merge($categoriesFromFolders, $categoriesFromDb))
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
         
         // Получаем видео с подсчетом комментариев и сортируем по рейтингу (просмотры + комментарии)
-        $videos = Video::withCount('comments')
+        $videosQuery = Video::withCount('comments');
+
+        if ($selectedCategory !== 'all') {
+            $videosQuery->where('category', $selectedCategory);
+        }
+
+        $videos = $videosQuery
             ->orderByRaw('(views + comments_count + likes) DESC')
             ->orderBy('views', 'DESC')
             ->orderBy('comments_count', 'DESC')
             ->paginate($perPage, ['*'], 'page', $page);
+
+        $videos->appends($request->query());
         
         // Группируем видео по "этажам" для веб-версии
         $groupedVideos = $this->groupVideosForWeb($videos->items());
         
-        return view('video.index', compact('videos', 'groupedVideos'));
+        return view('video.index', compact('videos', 'groupedVideos', 'categories', 'selectedCategory'));
     }
     
     private function groupVideosForWeb($videos)

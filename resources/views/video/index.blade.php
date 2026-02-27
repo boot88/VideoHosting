@@ -55,6 +55,47 @@
             font-weight: 300;
             letter-spacing: 2px;
         }
+
+        .category-panel {
+            margin: 0 auto 30px;
+            max-width: 1100px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .category-chip {
+            display: inline-block;
+            padding: 8px 14px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.18);
+            color: #ddd;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: all .2s ease;
+            background: rgba(255,255,255,0.03);
+        }
+
+        .category-chip:hover {
+            border-color: rgba(255,107,157,0.55);
+            color: #fff;
+        }
+
+        .category-chip.active {
+            border-color: rgba(255,107,157,0.95);
+            background: linear-gradient(45deg, rgba(255,107,157,.22), rgba(78,205,196,.22));
+            color: #fff;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #bdbdbd;
+            padding: 40px 20px;
+            border: 1px dashed rgba(255,255,255,0.2);
+            border-radius: 12px;
+            margin: 20px 0 30px;
+        }
         
         /* Featured Video */
         .featured-video {
@@ -375,6 +416,13 @@
             <h1>Fashion Video Hub</h1>
             <p>Модная платформа для просмотра видео</p>
         </div>
+
+        <div class="category-panel">
+            <a href="{{ route('video.index', array_merge(request()->except('page', 'category'), ['category' => 'all'])) }}" class="category-chip {{ ($selectedCategory ?? 'all') === 'all' ? 'active' : '' }}">Все категории</a>
+            @foreach(($categories ?? []) as $category)
+                <a href="{{ route('video.index', array_merge(request()->except('page', 'category'), ['category' => $category])) }}" class="category-chip {{ ($selectedCategory ?? 'all') === $category ? 'active' : '' }}">{{ $category }}</a>
+            @endforeach
+        </div>
         
         @if(isset($videos[0]))
             <!-- Featured Video (самое популярное) -->
@@ -417,6 +465,12 @@
             </div>
         @endif
         
+        @if($videos->isEmpty())
+            <div class="empty-state">
+                По выбранной категории пока нет видео.
+            </div>
+        @endif
+
         <!-- Desktop Pyramid Layout -->
         @php
             $globalIndex = 0;
